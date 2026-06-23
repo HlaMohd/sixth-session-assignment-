@@ -1,72 +1,77 @@
-# مشروع تحليل بيانات الشطرنج
+Chess Data Analysis Project
+Overview
 
-## نظرة عامة
-هذا المشروع يحلل بيانات مباريات الشطرنج ويجيب على أسئلة مختلفة باستخدام استعلامات SQL.
+This project analyzes chess game data and answers various analytical questions using SQL queries.
 
-## بنية قاعدة البيانات
-تحتوي قاعدة البيانات على 3 جداول رئيسية: `players` (اللاعبين)، `games` (الألعاب)، `openings` (الافتتاحيات).
+Database Structure
 
-### المفاتيح الأجنبية (Foreign Keys)
-- `games.white_id` → `players.username`: يضمن وجود اللاعب الأبيض في النظام
-- `games.black_id` → `players.username`: يضمن وجود اللاعب الأسود في النظام
-- `games.opening_code` → `openings.opening_code`: يضمن وجود الافتتاحية في دليل الافتتاحيات
+The database contains 3 main tables:
 
-### سبب وجود كل FK:
-1. **`white_id` و `black_id`**: لمنع إضافة ألعاب بلاعبين غير مسجلين في قاعدة البيانات
-2. **`opening_code`**: لمنع استخدام افتتاحيات غير موثقة
+players (players)
+games (games)
+openings (chess openings)
+Foreign Keys
+games.white_id → players.username
+Ensures that the white player exists in the system.
+games.black_id → players.username
+Ensures that the black player exists in the system.
+games.opening_code → openings.opening_code
+Ensures that the opening exists in the openings reference table.
+Why these foreign keys exist:
+white_id and black_id: Prevent adding games with unregistered players.
+opening_code: Prevent using undefined or unrecognized openings.
+CHECK Constraints and What They Prevent
+registered_year BETWEEN 1900 AND 2025
+Prevents unrealistic registration years.
+rating_registry BETWEEN 0 AND 3000
+Prevents invalid chess rating values.
+account_status IN ('active','closed','banned')
+Ensures only valid account statuses.
+join_platform IN ('web','mobile','api')
+Restricts allowed registration platforms.
+turns > 0
+Prevents games with zero or negative moves.
+victory_status IN (...)
+Ensures only valid game outcome values.
+winner IN ('white','black','draw')
+Prevents invalid winner labels.
+rated IN (0,1)
+Ensures binary values only for rated games.
+Performance Optimization (Indexes)
 
-### قيود CHECK وماذا تمنع:
-- **`registered_year BETWEEN 1900 AND 2025`**: يمنع سنوات التسجيل غير المنطقية
-- **`rating_registry BETWEEN 0 AND 3000`**: يمنع تقييمات خارج النطاق العالمي للشطرنج
-- **`account_status IN ('active','closed','banned')`**: يمنع إدخال حالات حساب غير صالحة
-- **`join_platform IN ('web','mobile','api')`**: يمنع منصات تسجيل غير معروفة
-- **`turns > 0`**: يمنع الألعاب بعدد أدوار صفر أو سالب
-- **`victory_status IN (...) `**: يمنع قيم فوز غير معروفة
-- **`winner IN ('white','black','draw')`**: يمنع فائزين غير صالحين
-- **`rated IN (0,1)`**: يمنع قيماً غير منطقية للحقول الثنائية
+The following indexes were added to improve query performance:
 
-## تحسين الأداء (Indexes)
+INDEX ON games(white_id) → speeds up queries filtering by white player
+INDEX ON games(black_id) → speeds up queries filtering by black player
+INDEX ON games(opening_code) → speeds up joins with openings table
+Query Execution Plan (EXPLAIN QUERY PLAN)
 
-تم إضافة الفهارس التالية لتسريع الاستعلامات:
-- `INDEX ON games(white_id)`: لتسريع البحث عن ألعاب لاعب معين
-- `INDEX ON games(black_id)`: لتسريع البحث عن ألعاب لاعب معين
-- `INDEX ON games(opening_code)`: لتسريع الربط مع جدول الافتتاحيات
+Before indexing, queries used a full table scan (SCAN).
+After adding indexes, queries use indexed search (SEARCH INDEX), reducing time complexity from O(n) to approximately O(log n).
 
-### شرح خطة الاستعلام (EXPLAIN QUERY PLAN):
-قبل إضافة الفهارس، كان الاستعلام يستخدم `SCAN` كامل للجدول.
-بعد إضافة الفهارس، يستخدم `SEARCH` عبر الـ index، مما يقلل وقت التنفيذ من O(n) إلى O(log n).
+Solved Questions
+1. Which opening has the highest draw rate?
+Compute draw percentage for each opening.
+2. Players who win more as black than white
+Compare wins as black vs wins as white per player.
+3. Most common opening per win type
+Use ROW_NUMBER() to rank openings per victory status.
+4. Top 3 opening families by average number of moves
+Group by opening_fullname and compute average turns.
+5. Game length ranking per player
+Use RANK() with PARTITION BY player_id ORDER BY turns DESC.
+Feature Table
 
-## الأسئلة المحلولة
+A features.csv file was created containing 7 columns:
 
-1. **أي رمز افتتاحية لديه أعلى نسبة تعادل؟**
-   - استعلام يحسب النسبة المئوية للتعادلات لكل افتتاحية
-
-2. **اللاعبون الذين فازوا بلعب أسود أكثر من الأبيض**
-   - مقارنة عدد انتصارات كل لاعب كلون أبيض مقابل أسود
-
-3. **لكل نوع فوز، أي افتتاحية هي الأكثر شيوعاً؟**
-   - استخدام `ROW_NUMBER()` لإيجاد الافتتاحية الأكثر تكراراً لكل فئة
-
-4. **أفضل 3 عائلات افتتاحية حسب متوسط الأدوار**
-   - تجميع حسب `opening_fullname` وحساب متوسط الأدوار
-
-5. **ترتيب ألعاب كل لاعب حسب الطول**
-   - استخدام `RANK()` مع `PARTITION BY player_id` و `ORDER BY turns DESC`
-
-## جدول الميزات (Feature Table)
-
-تم إنشاء ملف `features.csv` يحتوي على 7 أعمدة:
-- `game_id`: معرف اللعبة
-- `rating_diff`: فرق التقييم بين اللاعبين
-- `turns`: عدد الأدوار
-- `rated`: هل اللعبة محسوبة؟
-- `opening_shortname`: اسم الافتتاحية المختصر
-- `white_experience`: عدد ألعاب اللاعب الأبيض السابقة
-- `winner`: الفائز (white/black/draw)
-
-## كيفية التشغيل
-
-```bash
-python src/db.py           # إنشاء قاعدة البيانات
-python src/queries.py      # تنفيذ الاستعلامات وحفظ النتائج
-python src/features.py     # بناء جدول الميزات
+game_id: Game identifier
+rating_diff: Rating difference between players
+turns: Number of moves
+rated: Whether the game is rated
+opening_shortname: Short opening name
+white_experience: Number of previous games of the white player
+winner: Game result (white / black / draw)
+How to Run
+python src/db.py           # Create database  
+python src/queries.py     # Run SQL queries and save outputs  
+python src/features.py    # Build feature dataset  
